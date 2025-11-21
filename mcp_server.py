@@ -40,6 +40,7 @@ class UxPlayMCPServer:
     def __init__(self):
         self.paths = Paths()
         self.arg_mgr = ArgumentManager(self.paths.arguments_file)
+        self.arg_mgr.ensure_exists()  # Ensure arguments file exists
         self.server_mgr = ServerManager(self.paths.uxplay_exe, self.arg_mgr)
         self.server = Server("uxplay-mcp-server")
         
@@ -55,7 +56,7 @@ class UxPlayMCPServer:
             return [
                 Tool(
                     name="get_screenshot",
-                    description="Capture a screenshot of the current mirrored screen from the iOS/macOS device",
+                    description="Capture a screenshot of the desktop (which may include the AirPlay mirrored screen from iOS/macOS devices if UxPlay is running and connected)",
                     inputSchema={
                         "type": "object",
                         "properties": {},
@@ -128,7 +129,7 @@ class UxPlayMCPServer:
                 ),
                 TextContent(
                     type="text",
-                    text=f"Screenshot captured successfully. Size: {screenshot.size[0]}x{screenshot.size[1]} pixels"
+                    text=f"Desktop screenshot captured successfully. Size: {screenshot.size[0]}x{screenshot.size[1]} pixels. This includes any active AirPlay mirrored content."
                 )
             ]
         except Exception as e:
