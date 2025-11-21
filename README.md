@@ -9,7 +9,12 @@ Download the latest version of uxplay-windows from [**releases**](https://github
 After installing, control uxplay-windows from it's [tray icon](https://www.odu.edu/sites/default/files/documents/win10-system-tray.pdf)! Right-click it to start or stop AirPlay. You can also set it to run automatically when your PC starts
 
 ### MCP Server (API)
-This project also provides an MCP (Model Context Protocol) server that allows AI assistants and other MCP clients to control UxPlay and capture screenshots of the mirrored screen.
+This project also provides an MCP (Model Context Protocol) server that allows AI assistants and other MCP clients to control UxPlay and capture screenshots directly from the AirPlay video stream.
+
+**Key Features:**
+- HTTP-based MCP server (works over network)
+- Captures screenshots from the actual AirPlay stream (not desktop screenshots)
+- Works even when UxPlay window is in the background
 
 **Installation:**
 ```bash
@@ -21,8 +26,15 @@ pip install -r requirements.txt
 python mcp_server.py
 ```
 
+The server will start on `http://127.0.0.1:8000` by default. You can customize this with environment variables:
+```bash
+set MCP_HOST=0.0.0.0
+set MCP_PORT=8080
+python mcp_server.py
+```
+
 **Available Tools:**
-- `get_screenshot` - Capture a screenshot of the current mirrored screen
+- `get_screenshot` - Capture a screenshot from the AirPlay video stream
 - `start_uxplay` - Start the UxPlay AirPlay server
 - `stop_uxplay` - Stop the UxPlay AirPlay server
 - `get_uxplay_status` - Check if UxPlay is running
@@ -33,8 +45,7 @@ Add this to your MCP client configuration (e.g., Claude Desktop):
 {
   "mcpServers": {
     "uxplay": {
-      "command": "python",
-      "args": ["C:\\path\\to\\uxplay-windows-mcp\\mcp_server.py"]
+      "url": "http://127.0.0.1:8000/sse"
     }
   }
 }
