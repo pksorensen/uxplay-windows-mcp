@@ -11,10 +11,8 @@ import os
 import sys
 import io
 import base64
-import asyncio
 import logging
 import tempfile
-import time
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -26,8 +24,6 @@ from mcp.server.sse import SseServerTransport
 from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 from starlette.applications import Starlette
 from starlette.routing import Route
-from starlette.requests import Request
-from starlette.responses import Response
 
 # Import the existing tray.py components
 from tray import Paths, ArgumentManager, APPDATA_DIR
@@ -115,8 +111,6 @@ class EnhancedServerManager:
             # Try to find and capture the UxPlay window
             # This is a Windows-specific implementation using win32gui
             import win32gui
-            import win32ui
-            import win32con
             from PIL import ImageGrab
             
             # Find the UxPlay window
@@ -135,7 +129,7 @@ class EnhancedServerManager:
                 
                 # Save to file
                 screenshot.save(str(self.latest_frame), format='PNG')
-                logging.info(f"Captured frame to {self.latest_frame}")
+                logging.info("Captured frame to %s", self.latest_frame)
                 return self.latest_frame
             else:
                 logging.warning("UxPlay window not found")
@@ -149,10 +143,10 @@ class EnhancedServerManager:
                 screenshot = ImageGrab.grab()
                 screenshot.save(str(self.latest_frame), format='PNG')
                 return self.latest_frame
-            except Exception as e:
+            except Exception:
                 logging.exception("Failed to capture frame")
                 return None
-        except Exception as e:
+        except Exception:
             logging.exception("Failed to capture frame")
             return None
 
@@ -364,24 +358,18 @@ class UxPlayMCPServer:
 mcp_server = UxPlayMCPServer()
 sse = SseServerTransport("/messages")
 
-async def handle_sse(request: Request) -> Response:
-    """Handle SSE connections for MCP"""
-    async with sse.connect_sse(
-        request.scope,
-        request.receive,
-        request._send,
-    ) as streams:
+async def handle_sse(scope, receive, send):
+    """Handle SSE connections for MCP (ASGI endpoint)"""
+    async with sse.connect_sse(scope, receive, send) as streams:
         await mcp_server.server.run(
             streams[0],
             streams[1],
             mcp_server.server.create_initialization_options(),
         )
-    return Response()
 
-async def handle_messages(request: Request) -> Response:
-    """Handle message endpoint"""
-    await sse.handle_post_message(request.scope, request.receive, request._send)
-    return Response()
+async def handle_messages(scope, receive, send):
+    """Handle message endpoint (ASGI endpoint)"""
+    await sse.handle_post_message(scope, receive, send)
 
 # Create Starlette app
 app = Starlette(
