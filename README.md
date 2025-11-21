@@ -2,9 +2,43 @@
 Free as both in "freedom" and "free beer"!
 
 ## Installation
+
+### Tray Application (GUI)
 Download the latest version of uxplay-windows from [**releases**](https://github.com/leapbtw/uxplay-windows/releases/latest).
 
 After installing, control uxplay-windows from it's [tray icon](https://www.odu.edu/sites/default/files/documents/win10-system-tray.pdf)! Right-click it to start or stop AirPlay. You can also set it to run automatically when your PC starts
+
+### MCP Server (API)
+This project also provides an MCP (Model Context Protocol) server that allows AI assistants and other MCP clients to control UxPlay and capture screenshots of the mirrored screen.
+
+**Installation:**
+```bash
+pip install -r requirements.txt
+```
+
+**Running the MCP Server:**
+```bash
+python mcp_server.py
+```
+
+**Available Tools:**
+- `get_screenshot` - Capture a screenshot of the current mirrored screen
+- `start_uxplay` - Start the UxPlay AirPlay server
+- `stop_uxplay` - Stop the UxPlay AirPlay server
+- `get_uxplay_status` - Check if UxPlay is running
+
+**Configuration for MCP Clients:**
+Add this to your MCP client configuration (e.g., Claude Desktop):
+```json
+{
+  "mcpServers": {
+    "uxplay": {
+      "command": "python",
+      "args": ["C:\\path\\to\\uxplay-windows-mcp\\mcp_server.py"]
+    }
+  }
+}
+```
 
 ## FAQ — Please Read!
 > [!NOTE]
