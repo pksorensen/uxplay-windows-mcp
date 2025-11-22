@@ -11,17 +11,25 @@ import json
 import io
 import base64
 import tempfile
+import asyncio
 from pathlib import Path
 from typing import List, Optional
 
 import pystray
 from PIL import Image
-import uvicorn
-from mcp.server import Server
-from mcp.server.sse import SseServerTransport
-from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
-from starlette.applications import Starlette
-from starlette.routing import Route
+
+# MCP-related imports with error handling
+MCP_AVAILABLE = False
+try:
+    import uvicorn
+    from mcp.server import Server
+    from mcp.server.sse import SseServerTransport
+    from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
+    from starlette.applications import Starlette
+    from starlette.routing import Route
+    MCP_AVAILABLE = True
+except ImportError as e:
+    logging.warning("MCP dependencies not available: %s. MCP server functionality will be disabled.", e)
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -209,8 +217,8 @@ class EnhancedServerManager(ServerManager):
         Returns path to captured frame or None if failed.
         """
         try:
-            import win32gui
             from PIL import ImageGrab
+            import win32gui
             
             # Find the UxPlay window
             hwnd = win32gui.FindWindow(None, "UxPlay")
@@ -233,13 +241,17 @@ class EnhancedServerManager(ServerManager):
                 logging.warning("UxPlay window not found")
                 return None
                 
-        except ImportError:
-            logging.warning("win32gui not available, falling back to full screen capture")
+        except ImportError as e:
+            logging.warning("Required packages not available (%s), falling back to full screen capture", e)
+            # Fallback: capture full screen
             try:
                 from PIL import ImageGrab
                 screenshot = ImageGrab.grab()
                 screenshot.save(str(self.latest_frame), format='PNG')
                 return self.latest_frame
+            except ImportError:
+                logging.error("PIL not available, cannot capture screenshot")
+                return None
             except Exception:
                 logging.exception("Failed to capture frame")
                 return None
@@ -317,6 +329,8 @@ class AutoStartManager:
 class MCPServerManager:
     """Manages the MCP HTTP server lifecycle"""
     def __init__(self, server_mgr: EnhancedServerManager, mcp_config: MCPConfigManager):
+        if not MCP_AVAILABLE:
+            logging.warning("MCP dependencies not available, MCP server disabled")
         self.server_mgr = server_mgr
         self.mcp_config = mcp_config
         self.mcp_server_instance = None
@@ -327,6 +341,9 @@ class MCPServerManager:
         
     def _create_mcp_server(self):
         """Create the MCP server instance with tools"""
+        if not MCP_AVAILABLE:
+            raise RuntimeError("MCP dependencies not available")
+        
         mcp_server = Server("uxplay-mcp-server")
         
         @mcp_server.list_tools()
@@ -397,7 +414,7 @@ class MCPServerManager:
         """Start UxPlay server"""
         try:
             self.server_mgr.start()
-            time.sleep(1)
+            await asyncio.sleep(1)
             if self.server_mgr.process and self.server_mgr.process.poll() is None:
                 return [TextContent(type="text", text=f"UxPlay started (PID: {self.server_mgr.process.pid})")]
             return [TextContent(type="text", text="UxPlay start command sent")]
@@ -423,6 +440,10 @@ class MCPServerManager:
     
     def start(self) -> None:
         """Start the MCP HTTP server"""
+        if not MCP_AVAILABLE:
+            logging.error("Cannot start MCP server: dependencies not available")
+            return
+            
         if self.server_thread and self.server_thread.is_alive():
             logging.info("MCP server already running")
             return
@@ -451,11 +472,17 @@ class MCPServerManager:
             ],
         )
         
-        # Run server in thread
+        # Run server in thread with proper event loop handling
         def run_server():
-            config = uvicorn.Config(self.app, host=host, port=port, log_level="warning")
-            self.uvicorn_server = uvicorn.Server(config)
-            self.uvicorn_server.run()
+            # Create new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                config = uvicorn.Config(self.app, host=host, port=port, log_level="warning")
+                self.uvicorn_server = uvicorn.Server(config)
+                loop.run_until_complete(self.uvicorn_server.serve())
+            finally:
+                loop.close()
         
         self.server_thread = threading.Thread(target=run_server, daemon=True)
         self.server_thread.start()
@@ -465,6 +492,9 @@ class MCPServerManager:
         """Stop the MCP HTTP server"""
         if self.uvicorn_server:
             self.uvicorn_server.should_exit = True
+            # Give server time to cleanup
+            if self.server_thread and self.server_thread.is_alive():
+                self.server_thread.join(timeout=2.0)
             logging.info("MCP server stopped")
     
     def is_running(self) -> bool:
@@ -504,14 +534,24 @@ class TrayIcon:
         self.auto_mgr = auto_mgr
         self.mcp_mgr = mcp_mgr
 
-        menu = pystray.Menu(
+        # Build menu items
+        menu_items = [
             pystray.MenuItem("Start UxPlay", lambda _: server_mgr.start()),
             pystray.MenuItem("Stop UxPlay",  lambda _: server_mgr.stop()),
             pystray.MenuItem("Restart UxPlay", lambda _: self._restart()),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Start MCP Server", lambda _: self._start_mcp()),
-            pystray.MenuItem("Stop MCP Server", lambda _: self._stop_mcp()),
-            pystray.MenuItem("MCP Settings", lambda _: self._show_mcp_settings()),
+        ]
+        
+        # Add MCP menu items if MCP is available
+        if MCP_AVAILABLE:
+            menu_items.extend([
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Start MCP Server", lambda _: self._start_mcp()),
+                pystray.MenuItem("Stop MCP Server", lambda _: self._stop_mcp()),
+                pystray.MenuItem("MCP Settings", lambda _: self._show_mcp_settings()),
+            ])
+        
+        # Add remaining menu items
+        menu_items.extend([
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "Autostart with Windows",
@@ -530,7 +570,9 @@ class TrayIcon:
                 )
             ),
             pystray.MenuItem("Exit", lambda _: self._exit())
-        )
+        ])
+
+        menu = pystray.Menu(*menu_items)
 
         self.icon = pystray.Icon(
             name=f"{APP_NAME}\nRight-click to configure.",
@@ -557,7 +599,25 @@ class TrayIcon:
         try:
             import tkinter as tk
             from tkinter import messagebox, scrolledtext
-            
+        except ImportError:
+            logging.error("tkinter not available, cannot show MCP settings dialog")
+            # Try to show error using Windows message box
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    "tkinter is not available. MCP settings dialog cannot be opened.\n\n"
+                    "MCP configuration is stored in:\n"
+                    f"{self.mcp_mgr.mcp_config.config_file}\n\n"
+                    "Edit this file manually to configure host and port.",
+                    "MCP Settings - Error",
+                    0x10  # MB_ICONERROR
+                )
+            except Exception:
+                logging.exception("Failed to show error dialog")
+            return
+        
+        try:
             # Create settings window
             window = tk.Tk()
             window.title("MCP Server Settings")
