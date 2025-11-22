@@ -1,17 +1,50 @@
 """
-Example MCP Client Configuration
+UxPlay MCP Server - User Guide
 
-This file demonstrates how to configure an MCP client (like Claude Desktop) 
-to use the UxPlay MCP Server.
+The UxPlay application now includes a built-in MCP (Model Context Protocol) server
+that allows AI assistants and other MCP clients to control UxPlay and capture
+screenshots from the AirPlay stream.
 
-The UxPlay MCP Server now runs as an HTTP server, making it more accessible
-and easier to integrate with various MCP clients.
+## Quick Start
 
-For Claude Desktop, add this to your configuration file:
+1. **Install UxPlay**
+   - Download and install from the releases page
+   - No need to clone the repository or install Python packages
+   - Everything is included in the application
+
+2. **Start the MCP Server**
+   - Right-click the UxPlay tray icon
+   - Select "Start MCP Server"
+   - The server will start on http://127.0.0.1:8000 by default
+
+3. **Configure Your MCP Client**
+   - Right-click the UxPlay tray icon
+   - Select "MCP Settings"
+   - Click "Copy to Clipboard" to copy the configuration
+   - Paste into your MCP client configuration file
+
+## MCP Settings Dialog
+
+The settings dialog allows you to:
+
+- **Change Host**: Default is 127.0.0.1 (localhost)
+  - Use 0.0.0.0 to allow network access
+  - Use specific IP for network binding
+
+- **Change Port**: Default is 8000
+  - Any port between 1-65535
+  - Make sure the port is not in use
+
+- **Copy Configuration**: One-click copy of the JSON configuration
+
+## For Claude Desktop Users
+
+Configuration file location:
 - Windows: %APPDATA%\Claude\claude_desktop_config.json
 - macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
 
-Example configuration (HTTP/SSE based):
+Example configuration (shown in MCP Settings dialog):
+```json
 {
   "mcpServers": {
     "uxplay": {
@@ -19,50 +52,88 @@ Example configuration (HTTP/SSE based):
     }
   }
 }
+```
 
-If you want to run the server on a different host/port:
-1. Set environment variables before starting the server:
-   - Windows:
-     set MCP_HOST=0.0.0.0
-     set MCP_PORT=8080
-     python mcp_server.py
-   
-   - Linux/macOS:
-     MCP_HOST=0.0.0.0 MCP_PORT=8080 python mcp_server.py
+Steps:
+1. Open MCP Settings from UxPlay tray icon
+2. Click "Copy to Clipboard"
+3. Open Claude Desktop configuration file
+4. Paste the configuration
+5. Restart Claude Desktop
 
-2. Update your MCP client configuration:
-{
-  "mcpServers": {
-    "uxplay": {
-      "url": "http://localhost:8080/sse"
-    }
-  }
-}
+## Available Tools
 
-Starting the Server:
-1. Open a command prompt/terminal
-2. Navigate to the uxplay-windows-mcp directory
-3. Run: python mcp_server.py
-4. The server will start and log its URL (default: http://127.0.0.1:8000)
+Once connected, your MCP client can use these tools:
 
-After configuration:
-1. Restart Claude Desktop (or your MCP client)
-2. You should see the "uxplay" MCP server available in the tools menu
-3. Available tools:
-   - get_screenshot: Capture from the actual AirPlay video stream
-   - start_uxplay: Start the AirPlay server
-   - stop_uxplay: Stop the AirPlay server
-   - get_uxplay_status: Check if UxPlay is running
+- **get_screenshot**: Capture a screenshot from the AirPlay video stream
+  - Works even when UxPlay window is in background
+  - Returns PNG image in base64 format
+  - Requires an active AirPlay connection
 
-Example usage in Claude:
-- "Can you start the UxPlay server for me?"
+- **start_uxplay**: Start the UxPlay AirPlay server
+  - Allows devices to connect and mirror screens
+
+- **stop_uxplay**: Stop the UxPlay AirPlay server
+  - Disconnects any connected devices
+
+- **get_uxplay_status**: Check if UxPlay is running
+  - Returns current status and PID if running
+
+## Example Usage in Claude
+
+After configuration, you can ask Claude:
+- "Can you start the UxPlay server?"
 - "Take a screenshot of the AirPlay stream"
-- "Is UxPlay running?"
+- "Is UxPlay running right now?"
 - "Stop the AirPlay server"
 
-Key Differences from Previous Version:
-- Now uses HTTP/SSE transport instead of stdio
-- Captures from the actual AirPlay video stream (not desktop)
-- Works even when UxPlay window is in the background
-- Can be accessed over the network if configured with MCP_HOST=0.0.0.0
+## Network Access
+
+To allow MCP clients on other computers to connect:
+
+1. Open MCP Settings
+2. Change Host to: 0.0.0.0
+3. Note your computer's IP address (e.g., 192.168.1.100)
+4. Update the URL in your MCP client:
+   ```json
+   {
+     "mcpServers": {
+       "uxplay": {
+         "url": "http://192.168.1.100:8000/sse"
+       }
+     }
+   }
+   ```
+5. Make sure Windows Firewall allows the connection
+
+## Troubleshooting
+
+**MCP Server won't start:**
+- Check if the port is already in use
+- Try changing the port in MCP Settings
+- Check the log file: %APPDATA%\uxplay-windows\uxplay-windows.log
+
+**MCP Client can't connect:**
+- Verify the MCP Server is running (check tray menu)
+- Verify the URL in your client configuration matches the MCP Settings
+- Check Windows Firewall settings
+- Try restarting both UxPlay and your MCP client
+
+**Screenshot returns error:**
+- Make sure UxPlay is running
+- Make sure a device is connected and streaming
+- Check if the UxPlay window is visible (even if minimized)
+
+## Advanced Configuration
+
+**Custom Port:**
+If port 8000 is in use, change it in MCP Settings to any available port.
+
+**Remote Access:**
+For remote access, use host 0.0.0.0 and configure your router to forward
+the port to your computer. Update firewall rules accordingly.
+
+**Security Note:**
+The MCP server has no authentication. Only expose it to trusted networks.
+For localhost use (127.0.0.1), only applications on your computer can access it.
 """
