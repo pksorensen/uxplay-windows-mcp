@@ -3,44 +3,45 @@ Free as both in "freedom" and "free beer"!
 
 ## Installation
 
-### Tray Application (GUI)
 Download the latest version of uxplay-windows from [**releases**](https://github.com/leapbtw/uxplay-windows/releases/latest).
 
-After installing, control uxplay-windows from it's [tray icon](https://www.odu.edu/sites/default/files/documents/win10-system-tray.pdf)! Right-click it to start or stop AirPlay. You can also set it to run automatically when your PC starts
+After installing, control uxplay-windows from its [tray icon](https://www.odu.edu/sites/default/files/documents/win10-system-tray.pdf)! Right-click it to:
+- Start/Stop AirPlay server
+- **Start/Stop MCP Server** (for AI assistant integration)
+- **Configure MCP Settings** (host, port, and client configuration)
+- Set to run automatically when your PC starts
 
-### MCP Server (API)
-This project also provides an MCP (Model Context Protocol) server that allows AI assistants and other MCP clients to control UxPlay and capture screenshots directly from the AirPlay video stream.
+## MCP Server Integration
 
-**Key Features:**
-- HTTP-based MCP server (works over network)
-- Captures screenshots from the actual AirPlay stream (not desktop screenshots)
-- Works even when UxPlay window is in the background
+This application includes a built-in MCP (Model Context Protocol) server that allows AI assistants and other MCP clients to control UxPlay and capture screenshots directly from the AirPlay video stream.
 
-**Installation:**
-```bash
-pip install -r requirements.txt
-```
+### Using the MCP Server
 
-**Running the MCP Server:**
-```bash
-python mcp_server.py
-```
+1. **Install the application** as normal from the releases page
+2. **Right-click the tray icon** and select "Start MCP Server"
+3. **Open MCP Settings** from the tray menu to:
+   - Configure the server host and port (default: 127.0.0.1:8000)
+   - Copy the MCP client configuration JSON
+4. **Paste the configuration** into your MCP client (e.g., Claude Desktop)
 
-The server will start on `http://127.0.0.1:8000` by default. You can customize this with environment variables:
-```bash
-set MCP_HOST=0.0.0.0
-set MCP_PORT=8080
-python mcp_server.py
-```
+### MCP Features
 
-**Available Tools:**
+- **HTTP-based server** - Works over network, no Python scripts needed
+- **Screenshot from AirPlay stream** - Captures actual mirrored content, not desktop
+- **Background operation** - Works even when UxPlay window is minimized
+- **Easy configuration** - Settings UI with copy-paste JSON for MCP clients
+
+### Available MCP Tools
+
 - `get_screenshot` - Capture a screenshot from the AirPlay video stream
 - `start_uxplay` - Start the UxPlay AirPlay server
 - `stop_uxplay` - Stop the UxPlay AirPlay server
 - `get_uxplay_status` - Check if UxPlay is running
 
-**Configuration for MCP Clients:**
-Add this to your MCP client configuration (e.g., Claude Desktop):
+### Configuration Example
+
+The MCP Settings dialog will show you the configuration to copy into your MCP client:
+
 ```json
 {
   "mcpServers": {
